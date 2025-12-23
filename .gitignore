@@ -1,0 +1,27 @@
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Environment variables
+.env
+
+# Google Cloud service account key
+serviceAccountKey.json
+
+# VS Code settings
+.vscode/
+
+# MacOS files
+.DS_Store
+
+# Logs
+*.log
+
+# Node modules (if using any frontend or scripts)
+node_modules/
+
+# Optional: temporary files
+*.tmp
+*.swp
