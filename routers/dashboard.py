@@ -4,8 +4,8 @@ from typing import Optional
 from utils.firestore import (
     create_task,
     get_tasks,
-    update_voice,
-    get_voice,
+    get_user_voice,
+    update_user_voice,
     save_conversation,
 )
 
@@ -54,7 +54,7 @@ def fetch_tasks(user_id: str):
 def set_voice(data: VoiceUpdate):
     """Update a user's preferred voice"""
     try:
-        update_voice(data.user_id, data.voice_id)
+        update_user_voice(data.user_id, data.voice_id)
         return {"status": "success", "message": "Voice preference updated."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update voice: {e}")
@@ -64,7 +64,7 @@ def set_voice(data: VoiceUpdate):
 def get_user_voice(user_id: str):
     """Retrieve a user's preferred voice"""
     try:
-        voice_id = get_voice(user_id)
+        voice_id = get_user_voice(user_id)
         return {"status": "success", "voice": voice_id or "default"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch voice: {e}")

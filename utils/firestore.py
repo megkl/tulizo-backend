@@ -116,23 +116,50 @@ def update_task(user_id, task_id, task_text=None, due_date=None, status=None):
     
     return doc_ref.get().to_dict()
 
-# ---- Settings ----
+def delete_task(user_id, task_id):
+    """Delete a specific task for a user"""
+    if db is None: return False
+    try:
+        doc_ref = db.collection("users").document(user_id).collection("tasks").document(task_id)
+        
+        # Check if exists before deleting (optional but recommended for debugging)
+        if doc_ref.get().exists:
+            doc_ref.delete()
+            return True
+        else:
+            print(f"Task {task_id} not found for user {user_id}")
+            return False
+    except Exception as e:
+        print(f"Error deleting task: {e}")
+        return False
 
-def update_voice(user_id, voice_id):
-    """Set preferred voice for a user using merge to prevent overwriting other settings"""
+
+# ---- Settings ----
+# ---- Voice Settings ----
+
+def update_user_voice(user_id, voice_id, voice_name):
+    """Save preferred voice ID and name to user settings"""
     if db is None: return
     try:
         doc_ref = db.collection("users").document(user_id).collection("settings").document("voice")
-        doc_ref.set({"preferred_voice": voice_id}, merge=True)
+        doc_ref.set({
+            "voice_id": voice_id,
+            "voice_name": voice_name,
+            "updated_at": datetime.utcnow()
+        }, merge=True)
+        return True
     except Exception as e:
-        print(f"Error updating voice: {e}")
+        print(f"Error saving voice preference: {e}")
+        return False
 
-def get_voice(user_id):
-    """Get preferred voice for a user"""
+def get_user_voice(user_id):
+    """Retrieve the preferred voice for the user"""
     if db is None: return None
     try:
         doc = db.collection("users").document(user_id).collection("settings").document("voice").get()
-        return doc.to_dict().get("preferred_voice") if doc.exists else None
+        if doc.exists:
+            return doc.to_dict()
+        return {"voice_id": os.getenv("VOICE_ID"), "voice_name": "Default"}
     except Exception as e:
-        print(f"Error fetching voice: {e}")
+        print(f"Error fetching voice preference: {e}")
         return None

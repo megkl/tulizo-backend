@@ -1,9 +1,9 @@
-from fastapi import FastAPI, Request, Body
+from fastapi import FastAPI, Request, Body, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from dotenv import load_dotenv
 from google import genai  # Gemini SDK
-from utils.firestore import save_conversation, get_recent_conversations, get_tasks, create_task
+from utils.firestore import save_conversation, get_recent_conversations, get_tasks, create_task, delete_task, get_user_voice, update_user_voice
 from routers import chat, tasks, settings, analytics, dashboard
 from utils.intents import extract_mood, extract_task, extract_due_date
 import requests
@@ -23,7 +23,9 @@ app.add_middleware(
 
 # Load API keys
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
-VOICE_ID = os.getenv("VOICE_ID")
+user_pref = get_user_voice("meg123")
+# VOICE_ID = os.getenv("VOICE_ID")
+VOICE_ID = user_pref["voice_id"] if user_pref else os.getenv("VOICE_ID")
 
 # Gemini client (auto-uses GEMINI_API_KEY)
 client = genai.Client()
@@ -159,4 +161,22 @@ async def update_task(
         return {"status": "success", "task": updated_task}
     except Exception as e:
         print("Firestore task update error:", e)
+        return {"status": "error", "message": str(e)}
+
+@app.delete("/tasks/{task_id}")
+async def remove_task(task_id: str, request: Request):
+    """Delete a task from Firestore"""
+    data = await request.json()
+    user_id = data.get("user_id")
+
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required in the body")
+
+    try:
+        success = delete_task(user_id, task_id)
+        if success:
+            return {"status": "success", "message": f"Task {task_id} deleted."}
+        else:
+            raise HTTPException(status_code=404, detail="Task not found or could not be deleted.")
+    except Exception as e:
         return {"status": "error", "message": str(e)}
