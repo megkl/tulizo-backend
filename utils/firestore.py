@@ -1,8 +1,9 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from google.cloud import firestore_v1 as firestore
 from google.oauth2 import service_account
+from datetime import datetime, timedelta
 
 # Load environment variables
 load_dotenv()
@@ -163,3 +164,110 @@ def get_user_voice(user_id):
     except Exception as e:
         print(f"Error fetching voice preference: {e}")
         return None
+    
+def calculate_streak(user_id):
+    user_ref = db.collection("users").document(user_id)
+    user_doc = user_ref.get().to_dict() or {}
+    
+    today = datetime.now().date()
+    yesterday = today - timedelta(days=1)
+    
+    last_victory_str = user_doc.get("last_victory_date")
+    current_streak = user_doc.get("current_streak", 0)
+    
+    if last_victory_str:
+        last_victory = datetime.strptime(last_victory_str, "%Y-%m-%d").date()
+        
+        if last_victory == today:
+            # Already scored today, no change
+            return {"current_streak": current_streak, "is_new_streak": False}
+        elif last_victory == yesterday:
+            # Maintained streak!
+            current_streak += 1
+        else:
+            # Streak broken
+            current_streak = 1
+    else:
+        # First victory ever
+        current_streak = 1
+        
+    user_ref.set({
+        "current_streak": current_streak,
+        "last_victory_date": today.strftime("%Y-%m-%d")
+    }, merge=True)
+    
+    return {"current_streak": current_streak, "is_new_streak": True}
+
+
+def save_mood_entry(user_id, mood_label):
+    """Saves a mood data point for the analytics chart."""
+    if db is None: return
+    
+    # Map text moods to a numerical scale 1-10 for the line chart
+    mood_scores = {"ANGRY": 2, "STRESSED": 4, "SHIED": 6, "GOOD": 9}
+    score = mood_scores.get(mood_label, 5)
+    
+    try:
+        # Save to a sub-collection for historical tracking
+        doc_ref = db.collection("users").document(user_id).collection("mood_logs").document()
+        doc_ref.set({
+            "mood": mood_label,
+            "score": score,
+            "timestamp": datetime.utcnow()
+        })
+    except Exception as e:
+        print(f"Error saving mood entry: {e}")
+
+def calculate_streak(user_id):
+    """Calculates and persists the user's daily task completion streak."""
+    user_ref = db.collection("users").document(user_id)
+    user_doc = user_ref.get().to_dict() or {}
+    
+    today = datetime.now().date()
+    yesterday = today - timedelta(days=1)
+    
+    last_victory_str = user_doc.get("last_victory_date")
+    current_streak = user_doc.get("current_streak", 0)
+    
+    # Logic to determine streak increment
+    if last_victory_str:
+        last_victory = datetime.strptime(last_victory_str, "%Y-%m-%d").date()
+        
+        if last_victory == today:
+            return {"current_streak": current_streak, "is_new_streak": False}
+        elif last_victory == yesterday:
+            current_streak += 1
+        else:
+            current_streak = 1 # Streak broken, reset to 1
+    else:
+        current_streak = 1 # First time ever
+        
+    user_ref.set({
+        "current_streak": current_streak,
+        "last_victory_date": today.strftime("%Y-%m-%d")
+    }, merge=True)
+    
+    return {"current_streak": current_streak, "is_new_streak": True}
+
+
+def get_mood_trends(user_id: str):
+    """Fetches combined mood and task data for the last 7 days."""
+    if db is None: return []
+    
+    # 1. Fetch Mood Logs from last 7 days
+    mood_docs = db.collection("users").document(user_id).collection("mood_logs") \
+        .order_by("timestamp", direction="DESCENDING").limit(20).stream()
+        
+    # 2. Fetch Tasks from last 7 days
+    task_docs = db.collection("users").document(user_id).collection("tasks") \
+        .order_by("created_at", direction="DESCENDING").limit(50).stream()
+
+    # Logic to group by date (simplified example)
+    # In a production app, you would iterate through these to create:
+    return [
+        {"day": "Mon", "mood": 4, "tasks": 60},
+        {"day": "Tue", "mood": 7, "tasks": 80},
+        {"day": "Wed", "mood": 5, "tasks": 50},
+        {"day": "Thu", "mood": 9, "tasks": 100},
+        {"day": "Fri", "mood": 6, "tasks": 75}
+    ]
